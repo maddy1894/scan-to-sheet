@@ -8,7 +8,21 @@
   body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 16px;
          background: #111; color: #eee; text-align: center; }
   h1 { font-size: 1.2rem; margin: 8px 0; }
-  #video { width: 100%; max-width: 420px; border-radius: 12px; background: #000; }
+  #cam { position: relative; display: inline-block; width: 100%; max-width: 420px; }
+  #video { width: 100%; border-radius: 12px; background: #000; display: block; }
+  #reticle { --c: rgba(34, 197, 94, 0.9); position: absolute; top: 15%; left: 12%;
+             right: 12%; bottom: 15%; pointer-events: none; display: none; }
+  #reticle.on { display: block; }
+  #reticle.hit { --c: #4dff88; filter: drop-shadow(0 0 6px #22c55e); }
+  #reticle i { position: absolute; width: 26px; height: 26px; border: 0 solid var(--c); }
+  #reticle i.tl { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 8px; }
+  #reticle i.tr { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 8px; }
+  #reticle i.bl { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 8px; }
+  #reticle i.br { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 8px; }
+  #reticle::before, #reticle::after { content: ""; position: absolute; top: 50%; left: 50%;
+             transform: translate(-50%, -50%); background: var(--c); }
+  #reticle::before { width: 26px; height: 2px; }
+  #reticle::after { width: 2px; height: 26px; }
   button, label.big { display: inline-block; padding: 14px 28px; margin: 12px 4px;
            font-size: 1.05rem; font-weight: 600; border: 0; border-radius: 12px;
            background: #2563eb; color: #fff; cursor: pointer; user-select: none; }
@@ -25,7 +39,10 @@
 </head>
 <body>
 <h1>📷 Scan barcodes &amp; QR codes</h1>
-<video id="video" playsinline muted></video>
+<div id="cam">
+  <video id="video" playsinline muted></video>
+  <div id="reticle"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+</div>
 <div>
   <button id="startBtn">Start scanning</button>
   <button id="stopBtn" disabled>Stop</button>
@@ -50,6 +67,7 @@ const logEl = document.getElementById("log");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const photoInput = document.getElementById("photoInput");
+const reticle = document.getElementById("reticle");
 
 let stream = null, running = false, nativeDetector = null, zxingReader = null;
 const recent = new Map();          // code -> last-seen ms, to skip immediate re-reads
@@ -133,6 +151,8 @@ async function submit(code) {
       li.textContent = "✅ [" + code.format + "] " + code.data + " → sheet (+" + info.appended + ")";
       li.className = "ok";
       if (navigator.vibrate) navigator.vibrate(120);
+      reticle.classList.add("hit");
+      setTimeout(() => reticle.classList.remove("hit"), 400);
       return;
     } catch (e) {
       if (attempt === 3) {
@@ -188,6 +208,7 @@ async function start() {
     await video.play();
     running = true;
     stopBtn.disabled = false;
+    reticle.classList.add("on");
     msg.textContent = "Scanning (" + (nativeDetector ? "native detector" : "ZXing") + ")… point at a code";
     scanLoop();
   } catch (e) {
@@ -200,6 +221,7 @@ function stop() {
   running = false;
   stopBtn.disabled = true;
   startBtn.disabled = false;
+  reticle.classList.remove("on", "hit");
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null;
   msg.textContent = "Stopped.";
